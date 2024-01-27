@@ -9,8 +9,8 @@ using System.Xml.Linq;
 HttpClient Client = new();
 string Lyrics = "";
 
-//Console.Write("Enter genius API key (get free one at 'https://docs.genius.com/'): ");
-string? ApiKey = "ucRn7Z0zUGzwSe-qh3ulzELWMFhKEfiy61xpTJN81MbBiI75K4dB3eqTrsgON0yK";//Console.ReadLine();
+Console.Write("Enter genius API key (get free one at 'https://docs.genius.com/'): ");
+string? ApiKey = Console.ReadLine();
 if (string.IsNullOrEmpty(ApiKey))
     Cancel("ApiKey is empty");
 
