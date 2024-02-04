@@ -26,7 +26,8 @@ if (string.IsNullOrEmpty(songArtist))
 
 Console.WriteLine("Searchig for Lyrics...");
 
-lyrics_search? searchResult = JsonConvert.DeserializeObject<lyrics_search>(await client.GetStringAsync($"https://api.genius.com/search?q={songTitle} {songArtist}&access_token={apiKey}"));
+string url = $"https://api.genius.com/search?q={WebUtility.UrlEncode($"{songTitle} {songArtist}")}&access_token={apiKey}";
+lyrics_search? searchResult = JsonConvert.DeserializeObject<lyrics_search>(await client.GetStringAsync(url));
 if (searchResult is null)
     Cancel("SearchResult is null");
 
