@@ -1,0 +1,12 @@
+.vs/
+packages/
+
+*.suo
+*.user
+_ReSharper.*
+
+Development/
+
+bin/
+obj/
+Properties/
