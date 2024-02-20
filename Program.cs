@@ -3,81 +3,80 @@ using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 
 HttpClient client = new();
-string lyrics = "";
+StringBuilder builder = new();
 
 Console.Write("Enter genius API key (get free one at 'https://docs.genius.com/'): ");
 string? apiKey = Console.ReadLine();
 if (string.IsNullOrEmpty(apiKey))
-    Cancel("ApiKey is empty");
+    ThrowError("ApiKey is empty");
 
 Console.Write("Enter Song Title: ");
 string? songTitle = Console.ReadLine();
 if (string.IsNullOrEmpty(songTitle))
-    Cancel("SongTitle is empty"); ;
+    ThrowError("SongTitle is empty"); ;
 Console.Write("Enter Song Artist: ");
 
 string? songArtist = Console.ReadLine();
 if (string.IsNullOrEmpty(songArtist))
-    Cancel("SongArtist is empty");
+    ThrowError("SongArtist is empty");
 
 
-Console.WriteLine("Searchig for Lyrics...");
+Console.WriteLine("Searching for Lyrics...");
 
 string url = $"https://api.genius.com/search?q={WebUtility.UrlEncode($"{songTitle} {songArtist}")}&access_token={apiKey}";
-lyrics_search? searchResult = JsonConvert.DeserializeObject<lyrics_search>(await client.GetStringAsync(url));
+string urlResponse = await client.GetStringAsync(url);
+LyricsSearch? searchResult = JsonConvert.DeserializeObject<LyricsSearch>(urlResponse);
 if (searchResult is null)
-    Cancel("SearchResult is null");
+    ThrowError("SearchResult is null");
 
-if (searchResult!.response.hits.Count == 0)
-    Cancel("SearchResult has no hits");
+if (searchResult!.Response.Hits.Count == 0)
+    ThrowError("SearchResult has no hits");
+if (searchResult!.Response.Hits[0].Type != "song")
+    ThrowError("SearchResult hit is not a song");
+if (searchResult!.Response.Hits[0].Type != "song")
+    ThrowError("SearchResult hit is not a song");
 
 
 Console.WriteLine("Found Hit.");
 
+string website = (await client.GetStringAsync(searchResult.Response.Hits[0].Result.Url)).Replace("https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js", "");
 HtmlDocument html = new();
-html.LoadHtml((await client.GetStringAsync(searchResult.response.hits[0].result.url)).Replace("https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js", ""));
+html.LoadHtml(website);
 
 HtmlNodeCollection nodes = html.DocumentNode.SelectNodes("//div[@data-lyrics-container]");
 if (nodes is null)
     return;
 
-string GetChildrenDirectText(HtmlNodeCollection nodes)
+void ExtractText(
+    HtmlNode node,
+    StringBuilder builder)
 {
-    StringBuilder builder = new();
-    foreach (HtmlNode child in nodes)
-    {
-        if (child.HasChildNodes)
+    foreach (HtmlNode childNode in node.ChildNodes)
+        switch (childNode.NodeType)
         {
-            builder.Append(GetChildrenDirectText(child.ChildNodes));
-            continue;
+            case HtmlNodeType.Text:
+                builder.Append(childNode.InnerText);
+                break;
+            case HtmlNodeType.Element:
+                if (childNode.Name == "br")
+                    builder.AppendLine();
+                else
+                    ExtractText(childNode, builder);
+                break;
         }
-
-        string innerText = child.GetDirectInnerText();
-        if (string.IsNullOrWhiteSpace(innerText))
-            continue;
-
-        if (innerText.Length < 2 && innerText[0] == '(' || innerText[^1] == '(')
-        {
-            builder.Append(innerText);
-            continue;
-        }
-
-        if (innerText[0] == ')')
-            builder.Remove(builder.Length - 2, 2);
-        builder.AppendLine(innerText);
-    }
-
-    return builder.ToString();
 }
 
-lyrics = WebUtility.HtmlDecode(Regex.Replace(GetChildrenDirectText(nodes), @"\[(.*?)\]", "\n$&").Replace("\r\n (", " (").Trim());
-Console.WriteLine("Lyrics fetched!\n");
+foreach(HtmlNode node in nodes)
+{
+    ExtractText(node, builder);
+    builder.AppendLine();
+}
 
+Console.WriteLine("Lyrics fetched!\n");
 Console.ForegroundColor = ConsoleColor.Green;
-Console.WriteLine(lyrics);
+Console.WriteLine(WebUtility.HtmlDecode(builder.ToString()));
 Console.ForegroundColor = ConsoleColor.White;
 
 Console.WriteLine("\nDo you want to restart the application? Y/N");
@@ -89,7 +88,7 @@ if (Console.ReadKey().Key == ConsoleKey.Y)
 }
 
 
-void Cancel(string reason)
+void ThrowError(string reason)
 {
     Console.ForegroundColor = ConsoleColor.Red;
     Console.WriteLine($"Program failed: {reason}");
@@ -98,19 +97,25 @@ void Cancel(string reason)
 
 
 #nullable disable
-public partial class lyrics_search
+public partial class LyricsSearch
 {
-    public lyrics_search_response response { get; set; }
+    public LyricsSearchResponse Response { get; set; }
 }
-public partial class lyrics_search_response
+public partial class LyricsSearchResponse
 {
-    public List<lyrics_search_response_hits> hits { get; set; }
+    public List<LyricsSearchResponseHits> Hits { get; set; }
 }
-public partial class lyrics_search_response_hits
+public partial class LyricsSearchResponseHits
 {
-    public lyrics_search_response_hits_result result { get; set; }
+    public string Type { get; set; }
+
+    public LyricsSearchResponseHitsResult Result { get; set; }
 }
-public partial class lyrics_search_response_hits_result
+public partial class LyricsSearchResponseHitsResult
 {
-    public string url { get; set; }
+    public string Title { get; set; }
+
+    public string Artist_Names { get; set; }
+
+    public string Url { get; set; }
 }
